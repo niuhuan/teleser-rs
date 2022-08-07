@@ -1,0 +1,17 @@
+[package]
+name = "teleser"
+version = "0.1.0"
+edition = "2021"
+description = "Telegram TMProto bot frame"
+license = "MIT"
+repository = "https://github.com/niuhuan/teleser-rs"
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1.36"
+grammers-client = { git = "https://github.com/niuhuan/grammers.git", features = ["proxy"] }
+grammers-session = { git = "https://github.com/niuhuan/grammers.git" }
+grammers-tl-types = { git = "https://github.com/niuhuan/grammers.git" }
+teleser_gen = { path = "../teleser_gen" }
+async-trait = "0.1.57"

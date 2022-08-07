@@ -1,0 +1,10 @@
+/target
+/Cargo.lock
+
+api_id.txt
+api_hash.txt
+
+*.iml
+.idea/
+
+*.session

@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "teleser",
+    "teleser_gen",
+    "teleser_template"
+]
