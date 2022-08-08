@@ -1,7 +1,7 @@
 use crate::Result;
 use std::cmp::min;
 
-use crate::handler::Handler;
+use crate::handler::Module;
 use grammers_client::{Config, InitParams, Update};
 use grammers_session::Session;
 use grammers_tl_types as tl;
@@ -16,7 +16,7 @@ use tokio::time::sleep;
 
 pub struct Client {
     pub inner_client: Mutex<Option<grammers_client::Client>>,
-    pub handlers: Arc<Vec<Handler>>,
+    pub modules: Arc<Vec<Module>>,
     api_id: i32,
     api_hash: String,
     auth: Auth,
@@ -28,29 +28,31 @@ pub struct Client {
 
 enum MapResult<'a> {
     None,
-    Process(&'a str),
-    Exception(&'a str),
+    Process(&'a str, &'a str),
+    Exception(&'a str, &'a str),
 }
 
-macro_rules! map_handlers {
+macro_rules! map_modules {
     ($hs:expr, $cp:expr $(,$event:expr, $process:path)* $(,)?) => {{
         let mut result = MapResult::None;
-            for h in $hs {
-                match &h.process {
+            for m in $hs {
+                for h in &m.handlers {
+                    match &h.process {
                     $(
                     $process(e) => match e.handle($cp, $event).await {
                         Ok(b) => {
                             if b {
-                                result = MapResult::Process(&h.id);
+                                result = MapResult::Process(&m.id, &h.id);
                             }
                         }
                         Err(err) => {
                             tracing::error!("error : {:?}", err);
-                            result = MapResult::Exception(&h.id);
+                            result = MapResult::Exception(&m.id, &h.id);
                         }
                     },
                     )*
                     _ => (),
+                }
                 }
                 if let MapResult::None = result {
                 } else {
@@ -61,13 +63,13 @@ macro_rules! map_handlers {
     }};
 }
 
-async fn hand(handlers: Arc<Vec<Handler>>, client: grammers_client::Client, update: Update) {
+async fn hand(modules: Arc<Vec<Module>>, client: grammers_client::Client, update: Update) {
     let client_point = &client;
     let update_point = &update;
     match update_point {
         Update::NewMessage(message) => {
-            let _ = map_handlers!(
-                handlers.deref(),
+            let _ = map_modules!(
+                modules.deref(),
                 client_point,
                 message,
                 crate::handler::Process::NewMessageProcess,
@@ -76,8 +78,8 @@ async fn hand(handlers: Arc<Vec<Handler>>, client: grammers_client::Client, upda
             );
         }
         Update::MessageEdited(message) => {
-            let _ = map_handlers!(
-                handlers.deref(),
+            let _ = map_modules!(
+                modules.deref(),
                 client_point,
                 message,
                 crate::handler::Process::MessageEditedProcess,
@@ -86,8 +88,8 @@ async fn hand(handlers: Arc<Vec<Handler>>, client: grammers_client::Client, upda
             );
         }
         Update::MessageDeleted(deletion) => {
-            let _ = map_handlers!(
-                handlers.deref(),
+            let _ = map_modules!(
+                modules.deref(),
                 client_point,
                 deletion,
                 crate::handler::Process::MessageDeletedProcess,
@@ -96,8 +98,8 @@ async fn hand(handlers: Arc<Vec<Handler>>, client: grammers_client::Client, upda
             );
         }
         Update::CallbackQuery(callback_query) => {
-            let _ = map_handlers!(
-                handlers.deref(),
+            let _ = map_modules!(
+                modules.deref(),
                 client_point,
                 callback_query,
                 crate::handler::Process::CallbackQueryProcess,
@@ -106,8 +108,8 @@ async fn hand(handlers: Arc<Vec<Handler>>, client: grammers_client::Client, upda
             );
         }
         Update::InlineQuery(inline_query) => {
-            let _ = map_handlers!(
-                handlers.deref(),
+            let _ = map_modules!(
+                modules.deref(),
                 client_point,
                 inline_query,
                 crate::handler::Process::InlineQueryProcess,
@@ -116,8 +118,8 @@ async fn hand(handlers: Arc<Vec<Handler>>, client: grammers_client::Client, upda
             );
         }
         Update::Raw(update) => {
-            let _ = map_handlers!(
-                handlers.deref(),
+            let _ = map_modules!(
+                modules.deref(),
                 client_point,
                 update,
                 crate::handler::Process::RawProcess,
@@ -243,7 +245,7 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
                 Ok(update)=> {
                     error_counter = 0;
                     if let Some(update) = update {
-                        task::spawn(hand(client.handlers.clone(),inner_client.clone(), update));
+                        task::spawn(hand(client.modules.clone(),inner_client.clone(), update));
                     }
                 }
                 Err(e)=>{
@@ -269,7 +271,7 @@ pub struct ClientBuilder {
     on_load_session: Option<
         Pin<Box<fn() -> Pin<Box<dyn Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send>>>>,
     >,
-    handlers: Option<Arc<Vec<Handler>>>,
+    modules: Option<Arc<Vec<Module>>>,
     proxy: Option<String>,
 }
 
@@ -281,7 +283,7 @@ impl ClientBuilder {
             auth: None,
             on_save_session: None,
             on_load_session: None,
-            handlers: None,
+            modules: None,
             proxy: None,
         }
     }
@@ -351,12 +353,12 @@ impl ClientBuilder {
         self
     }
 
-    pub fn set_handlers<S: Into<Arc<Vec<Handler>>>>(&mut self, s: S) {
-        self.handlers = Some(s.into())
+    pub fn set_modules<S: Into<Arc<Vec<Module>>>>(&mut self, s: S) {
+        self.modules = Some(s.into())
     }
 
-    pub fn with_handlers<S: Into<Arc<Vec<Handler>>>>(mut self, s: S) -> Self {
-        self.set_handlers(s);
+    pub fn with_modules<S: Into<Arc<Vec<Module>>>>(mut self, s: S) -> Self {
+        self.set_modules(s);
         self
     }
 
@@ -371,7 +373,7 @@ impl ClientBuilder {
 
     pub fn build(self) -> Result<Client> {
         return Ok(Client {
-            handlers: self.handlers.expect("must set handlers"),
+            modules: self.modules.expect("must set modules"),
             inner_client: Mutex::new(None),
             api_id: self.api_id.expect("must set api_id"),
             api_hash: self.api_hash.expect("must set api_hash"),

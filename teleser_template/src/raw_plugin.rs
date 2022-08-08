@@ -1,6 +1,6 @@
 use teleser::re_exports::async_trait::async_trait;
 use teleser::re_exports::grammers_client::types::Message;
-use teleser::{Handler, InnerClient, NewMessageProcess, Process};
+use teleser::{Handler, InnerClient, Module, NewMessageProcess, Process};
 
 pub(crate) struct RawPlugin {}
 
@@ -12,10 +12,13 @@ impl NewMessageProcess for RawPlugin {
     }
 }
 
-pub(crate) fn build() -> Handler {
-    Handler {
-        id: "raw".to_string(),
-        name: "raw".to_string(),
-        process: Process::NewMessageProcess(Box::new(RawPlugin {})),
+pub(crate) fn module() -> Module {
+    Module {
+        id: "RawPlugin".to_owned(),
+        name: "RawPlugin".to_owned(),
+        handlers: vec![Handler {
+            id: "RawPlugin".to_owned(),
+            process: Process::NewMessageProcess(Box::new(RawPlugin {})),
+        }],
     }
 }

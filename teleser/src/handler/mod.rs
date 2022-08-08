@@ -34,8 +34,13 @@ pub enum Process {
     RawProcess(Box<dyn RawProcess>),
 }
 
-pub struct Handler {
+pub struct Module {
     pub id: String,
     pub name: String,
+    pub handlers: Vec<Handler>,
+}
+
+pub struct Handler {
+    pub id: String,
     pub process: Process,
 }

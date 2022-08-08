@@ -89,8 +89,8 @@ async fn async_main() -> Result<()> {
                     }
                 })
             }))
-            // handlers
-            .with_handlers(vec![raw_plugin::build(), proc_plugin::handler()])
+            // modules
+            .with_modules(vec![raw_plugin::module(), proc_plugin::module()])
             // connect to server via proxy url, like socks5://127.0.0.1:1080 (runtime)
             .with_proxy(match std::env::var("TELESER_PROXY") {
                 Ok(url) => Some(url),
@@ -140,8 +140,15 @@ async fn proc_new_message(_: &InnerClient, message: &Message) -> Result<bool> {
     Ok(false)
 }
 
-pub(crate) fn handler() -> Handler {
-    proc_new_message {}.into()
+pub(crate) fn module() -> Module {
+    Module {
+        id: "proc_new_message".to_owned(),
+        name: "proc_new_message".to_owned(),
+        handlers: vec![Handler {
+            id: "proc_new_message".to_owned(),
+            process: proc_new_message {}.into(),
+        }],
+    }
 }
 ```
 
@@ -162,10 +169,14 @@ impl NewMessageProcess for RawPlugin {
     }
 }
 
-pub(crate) fn build() -> Handler {
-    Handler {
-        id: "raw".to_string(),
-        process: Process::NewMessageProcess(Box::new(RawPlugin {})),
+pub(crate) fn module() -> Module {
+    Module {
+        id: "RawPlugin".to_owned(),
+        name: "RawPlugin".to_owned(),
+        handlers: vec![Handler {
+            id: "RawPlugin".to_owned(),
+            process: Process::NewMessageProcess(Box::new(RawPlugin {})),
+        }],
     }
 }
 ```

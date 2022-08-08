@@ -68,11 +68,11 @@ async fn async_main() -> Result<()> {
                     }
                 })
             }))
-            .with_handlers(vec![
-                raw_plugin::build(),
-                proc_new_message::handler(),
-                proc_message_edited::handler(),
-                proc_message_deleted::handler(),
+            .with_modules(vec![
+                raw_plugin::module(),
+                proc_new_message::module(),
+                proc_message_edited::module(),
+                proc_message_deleted::module(),
             ])
             .with_proxy(match std::env::var("TELESER_PROXY") {
                 Ok(url) => Some(url),
