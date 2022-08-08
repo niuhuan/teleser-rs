@@ -152,6 +152,38 @@ pub(crate) fn module() -> Module {
 }
 ```
 
+parse to handler
+
+```rust
+pub(crate) fn module() -> Module {
+    Module {
+        id: "proc_new_message".to_owned(),
+        name: "proc_new_message".to_owned(),
+        handlers: vec![proc_new_message {}.into()],
+    }
+}
+```
+
+parse to handlers
+
+```rust
+pub(crate) fn module() -> Module {
+    Module {
+        id: "proc_new_message".to_owned(),
+        name: "proc_new_message".to_owned(),
+        handlers: proc_new_message {}.into(),
+    }
+}
+```
+
+parse to module
+
+```rust
+pub(crate) fn module() -> Module {
+    proc_new_message {}.into()
+}
+```
+
 ### Manually write a handler
 
 ```rust
