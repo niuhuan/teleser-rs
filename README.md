@@ -62,13 +62,14 @@ async fn async_main() -> Result<()> {
             .with_api_id(env!("API_ID").parse()?)
             // read api hash from env (on build)
             .with_api_hash(env!("API_HASH").to_string())
-            // on need input phone
-            .with_input_phone(Box::pin(|| {
-                Box::pin(async { input("Input your phone number ( like +112345678 )") })
-            }))
-            // on need input code
-            .with_input_code(Box::pin(|| {
-                Box::pin(async { input("Input your device or sms code ( like 12345 )") })
+            // auth
+            .with_auth(Auth::AuthWithPhoneAndCode(AuthWithPhoneAndCode {
+                input_phone: Box::pin(|| {
+                    Box::pin(async { input("Input your phone number ( like +112345678 )") })
+                }),
+                input_code: Box::pin(|| {
+                    Box::pin(async { input("Input your device or sms code ( like 12345 )") })
+                }),
             }))
             // save session to file teleser.session if login
             .with_on_save_session(Box::pin(|data| {

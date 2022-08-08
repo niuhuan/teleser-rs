@@ -9,7 +9,7 @@ use std::sync::Arc;
 use teleser::re_exports::tokio;
 use teleser::re_exports::tokio::runtime;
 use teleser::re_exports::tracing::Level;
-use teleser::Result;
+use teleser::{Auth, AuthWithPhoneAndCode, Result};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -44,11 +44,13 @@ async fn async_main() -> Result<()> {
         teleser::ClientBuilder::new()
             .with_api_id(env!("API_ID").parse()?)
             .with_api_hash(env!("API_HASH").to_string())
-            .with_input_phone(Box::pin(|| {
-                Box::pin(async { input("Input your phone number ( like +112345678 )") })
-            }))
-            .with_input_code(Box::pin(|| {
-                Box::pin(async { input("Input your device or sms code ( like 12345 )") })
+            .with_auth(Auth::AuthWithPhoneAndCode(AuthWithPhoneAndCode {
+                input_phone: Box::pin(|| {
+                    Box::pin(async { input("Input your phone number ( like +112345678 )") })
+                }),
+                input_code: Box::pin(|| {
+                    Box::pin(async { input("Input your device or sms code ( like 12345 )") })
+                }),
             }))
             .with_on_save_session(Box::pin(|data| {
                 Box::pin(async move {

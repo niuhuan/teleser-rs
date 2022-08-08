@@ -19,8 +19,7 @@ pub struct Client {
     pub handlers: Arc<Vec<Handler>>,
     api_id: i32,
     api_hash: String,
-    input_phone: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
-    input_code: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
+    auth: Auth,
     on_save_session: Pin<Box<fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>>>,
     on_load_session:
         Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<Option<Vec<u8>>>> + Send>>>>,
@@ -175,16 +174,29 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
             .await?
     );
     if !inner_client.is_authorized().await? {
-        let token = inner_client
-            .request_login_code(
-                (client.input_phone)().await?.as_str(),
-                client.api_id.clone(),
-                client.api_hash.as_str(),
-            )
-            .await?;
-        let usr = inner_client
-            .sign_in(&token, (client.input_code)().await?.as_str())
-            .await?;
+        let usr = match &client.auth {
+            Auth::AuthWithPhoneAndCode(auth) => {
+                let token = inner_client
+                    .request_login_code(
+                        (auth.input_phone)().await?.as_str(),
+                        client.api_id.clone(),
+                        client.api_hash.as_str(),
+                    )
+                    .await?;
+                inner_client
+                    .sign_in(&token, (auth.input_code)().await?.as_str())
+                    .await?
+            }
+            Auth::AuthWithBotToken(auth) => {
+                inner_client
+                    .bot_sign_in(
+                        (auth.input_bot_token)().await?.as_str(),
+                        client.api_id.clone(),
+                        client.api_hash.as_str(),
+                    )
+                    .await?
+            }
+        };
         tracing::info!("login with id : {}", usr.id());
         (client.on_save_session)(inner_client.session().save()).await?;
     } else {
@@ -251,8 +263,7 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
 pub struct ClientBuilder {
     api_id: Option<i32>,
     api_hash: Option<String>,
-    input_phone: Option<Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>>,
-    input_code: Option<Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>>,
+    auth: Option<Auth>,
     on_save_session:
         Option<Pin<Box<fn(Vec<u8>) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>>>>,
     on_load_session: Option<
@@ -267,8 +278,7 @@ impl ClientBuilder {
         Self {
             api_id: None,
             api_hash: None,
-            input_phone: None,
-            input_code: None,
+            auth: None,
             on_save_session: None,
             on_load_session: None,
             handlers: None,
@@ -294,33 +304,12 @@ impl ClientBuilder {
         self
     }
 
-    pub fn set_input_phone(
-        &mut self,
-        input_phone: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
-    ) {
-        self.input_phone = Some(input_phone)
+    pub fn set_auth(&mut self, auth: Auth) {
+        self.auth = Some(auth)
     }
 
-    pub fn with_input_phone(
-        mut self,
-        input_phone: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
-    ) -> Self {
-        self.set_input_phone(input_phone);
-        self
-    }
-
-    pub fn set_input_code(
-        &mut self,
-        input_code: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
-    ) {
-        self.input_code = Some(input_code)
-    }
-
-    pub fn with_input_code(
-        mut self,
-        input_code: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
-    ) -> Self {
-        self.set_input_code(input_code);
+    pub fn with_auth(mut self, auth: Auth) -> Self {
+        self.set_auth(auth);
         self
     }
 
@@ -386,11 +375,24 @@ impl ClientBuilder {
             inner_client: Mutex::new(None),
             api_id: self.api_id.expect("must set api_id"),
             api_hash: self.api_hash.expect("must set api_hash"),
-            input_phone: self.input_phone.expect("must set input_phone"),
-            input_code: self.input_code.expect("must set input_number"),
+            auth: self.auth.expect("must set auth"),
             on_save_session: self.on_save_session.expect("must set on_save_session"),
             on_load_session: self.on_load_session.expect("must set on_load_session"),
             proxy: self.proxy,
         });
     }
+}
+
+pub enum Auth {
+    AuthWithBotToken(AuthWithBotToken),
+    AuthWithPhoneAndCode(AuthWithPhoneAndCode),
+}
+
+pub struct AuthWithBotToken {
+    pub input_bot_token: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
+}
+
+pub struct AuthWithPhoneAndCode {
+    pub input_phone: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
+    pub input_code: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
 }
