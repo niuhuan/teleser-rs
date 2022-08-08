@@ -64,7 +64,7 @@ pub fn new_message(_: TokenStream, input: TokenStream) -> TokenStream {
     let enum_name = quote! {::teleser::Process::NewMessageProcess};
     // gen token stream
     let ident = &method.sig.ident;
-    let ident_str = format!("{}", ident);
+    // let ident_str = format!("{}", ident);
     let build_struct = quote! {
         #[allow(non_camel_case_types)]
         pub struct #ident {}
@@ -77,12 +77,9 @@ pub fn new_message(_: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
     let build_into = quote! {
-        impl Into<::teleser::Handler> for #ident {
-            fn into(self) -> ::teleser::Handler {
-                ::teleser::Handler{
-                    id: #ident_str.into(),
-                    process: #enum_name(Box::new(self)),
-                }
+        impl Into<::teleser::Process> for #ident {
+            fn into(self) -> ::teleser::Process {
+                #enum_name(Box::new(self))
             }
         }
     };
@@ -135,7 +132,7 @@ pub fn message_edited(_: TokenStream, input: TokenStream) -> TokenStream {
     let enum_name = quote! {::teleser::Process::MessageEditedProcess};
     // gen token stream
     let ident = &method.sig.ident;
-    let ident_str = format!("{}", ident);
+    // let ident_str = format!("{}", ident);
     let build_struct = quote! {
         #[allow(non_camel_case_types)]
         pub struct #ident {}
@@ -148,15 +145,12 @@ pub fn message_edited(_: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
     let build_into = quote! {
-        impl Into<::teleser::Handler> for #ident {
-            fn into(self) -> ::teleser::Handler {
-                ::teleser::Handler{
-                    id: #ident_str.into(),
-                    process: #enum_name(Box::new(self)),
+            impl Into<::teleser::Process> for #ident {
+                fn into(self) -> ::teleser::Process {
+    #enum_name(Box::new(self))
                 }
             }
-        }
-    };
+        };
     emit!(quote! {
         #build_struct
         #build_trait
@@ -206,7 +200,7 @@ pub fn message_deleted(_: TokenStream, input: TokenStream) -> TokenStream {
     let enum_name = quote! {::teleser::Process::MessageDeletedProcess};
     // gen token stream
     let ident = &method.sig.ident;
-    let ident_str = format!("{}", ident);
+    // let ident_str = format!("{}", ident);
     let build_struct = quote! {
         #[allow(non_camel_case_types)]
         pub struct #ident {}
@@ -219,15 +213,12 @@ pub fn message_deleted(_: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
     let build_into = quote! {
-        impl Into<::teleser::Handler> for #ident {
-            fn into(self) -> ::teleser::Handler {
-                ::teleser::Handler{
-                    id: #ident_str.into(),
-                    process: #enum_name(Box::new(self)),
+            impl Into<::teleser::Process> for #ident {
+                fn into(self) -> ::teleser::Process {
+    #enum_name(Box::new(self))
                 }
             }
-        }
-    };
+        };
     emit!(quote! {
         #build_struct
         #build_trait
@@ -277,7 +268,7 @@ pub fn callback_query(_: TokenStream, input: TokenStream) -> TokenStream {
     let enum_name = quote! {::teleser::Process::CallbackQueryProcess};
     // gen token stream
     let ident = &method.sig.ident;
-    let ident_str = format!("{}", ident);
+    // let ident_str = format!("{}", ident);
     let build_struct = quote! {
         #[allow(non_camel_case_types)]
         pub struct #ident {}
@@ -290,15 +281,12 @@ pub fn callback_query(_: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
     let build_into = quote! {
-        impl Into<::teleser::Handler> for #ident {
-            fn into(self) -> ::teleser::Handler {
-                ::teleser::Handler{
-                    id: #ident_str.into(),
-                    process: #enum_name(Box::new(self)),
+            impl Into<::teleser::Process> for #ident {
+                fn into(self) -> ::teleser::Process {
+    #enum_name(Box::new(self))
                 }
             }
-        }
-    };
+        };
     emit!(quote! {
         #build_struct
         #build_trait
@@ -348,7 +336,7 @@ pub fn inline_query(_: TokenStream, input: TokenStream) -> TokenStream {
     let enum_name = quote! {::teleser::Process::InlineQueryProcess};
     // gen token stream
     let ident = &method.sig.ident;
-    let ident_str = format!("{}", ident);
+    // let ident_str = format!("{}", ident);
     let build_struct = quote! {
         #[allow(non_camel_case_types)]
         pub struct #ident {}
@@ -361,15 +349,12 @@ pub fn inline_query(_: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
     let build_into = quote! {
-        impl Into<::teleser::Handler> for #ident {
-            fn into(self) -> ::teleser::Handler {
-                ::teleser::Handler{
-                    id: #ident_str.into(),
-                    process: #enum_name(Box::new(self)),
+            impl Into<::teleser::Process> for #ident {
+                fn into(self) -> ::teleser::Process {
+    #enum_name(Box::new(self))
                 }
             }
-        }
-    };
+        };
     emit!(quote! {
         #build_struct
         #build_trait
@@ -419,7 +404,7 @@ pub fn raw(_: TokenStream, input: TokenStream) -> TokenStream {
     let enum_name = quote! {::teleser::Process::RawProcess};
     // gen token stream
     let ident = &method.sig.ident;
-    let ident_str = format!("{}", ident);
+    // let ident_str = format!("{}", ident);
     let build_struct = quote! {
         #[allow(non_camel_case_types)]
         pub struct #ident {}
@@ -432,15 +417,12 @@ pub fn raw(_: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
     let build_into = quote! {
-        impl Into<::teleser::Handler> for #ident {
-            fn into(self) -> ::teleser::Handler {
-                ::teleser::Handler{
-                    id: #ident_str.into(),
-                    process: #enum_name(Box::new(self)),
+            impl Into<::teleser::Process> for #ident {
+                fn into(self) -> ::teleser::Process {
+    #enum_name(Box::new(self))
                 }
             }
-        }
-    };
+        };
     emit!(quote! {
         #build_struct
         #build_trait

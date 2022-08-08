@@ -9,5 +9,9 @@ async fn proc_new_message(_: &InnerClient, message: &Message) -> Result<bool> {
 }
 
 pub(crate) fn handler() -> Handler {
-    proc_new_message {}.into()
+    Handler {
+        id: "proc_new_message".to_owned(),
+        name: "proc_new_message".to_owned(),
+        process: proc_new_message {}.into(),
+    }
 }

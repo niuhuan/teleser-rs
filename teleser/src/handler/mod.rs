@@ -36,5 +36,6 @@ pub enum Process {
 
 pub struct Handler {
     pub id: String,
+    pub name: String,
     pub process: Process,
 }

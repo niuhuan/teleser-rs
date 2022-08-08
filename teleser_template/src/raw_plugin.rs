@@ -15,6 +15,7 @@ impl NewMessageProcess for RawPlugin {
 pub(crate) fn build() -> Handler {
     Handler {
         id: "raw".to_string(),
+        name: "raw".to_string(),
         process: Process::NewMessageProcess(Box::new(RawPlugin {})),
     }
 }

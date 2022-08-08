@@ -1,4 +1,4 @@
-use crate::Result;
+use teleser::re_exports::anyhow::Result;
 use teleser::re_exports::grammers_client::types::Message;
 use teleser::{message_edited, Handler, InnerClient};
 
@@ -9,5 +9,9 @@ async fn proc_message_edited(_: &InnerClient, message: &Message) -> Result<bool>
 }
 
 pub(crate) fn handler() -> Handler {
-    proc_message_edited {}.into()
+    Handler {
+        id: "proc_message_edited".to_owned(),
+        name: "proc_message_edited".to_owned(),
+        process: proc_message_edited {}.into(),
+    }
 }

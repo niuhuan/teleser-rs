@@ -9,5 +9,9 @@ async fn proc_message_deleted(_: &InnerClient, message: &MessageDeletion) -> Res
 }
 
 pub(crate) fn handler() -> Handler {
-    proc_message_deleted {}.into()
+    Handler {
+        id: "proc_message_deleted".to_owned(),
+        name: "proc_message_deleted".to_owned(),
+        process: proc_message_deleted {}.into(),
+    }
 }
