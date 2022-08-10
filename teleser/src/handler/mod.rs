@@ -9,7 +9,7 @@ macro_rules! process_trait {
         pub trait $name: Sync + Send {
             async fn handle(
                 &self,
-                client: &grammers_client::Client,
+                client: &mut grammers_client::Client,
                 event: &$event,
             ) -> anyhow::Result<bool>;
         }

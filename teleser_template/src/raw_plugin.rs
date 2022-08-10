@@ -6,7 +6,7 @@ pub(crate) struct RawPlugin {}
 
 #[async_trait]
 impl NewMessageProcess for RawPlugin {
-    async fn handle(&self, _: &InnerClient, event: &Message) -> crate::Result<bool> {
+    async fn handle(&self, _: &mut InnerClient, event: &Message) -> crate::Result<bool> {
         println!("RAW : A NEW MESSAGE : {}", event.text());
         Ok(false)
     }

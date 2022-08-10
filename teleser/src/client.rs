@@ -59,15 +59,26 @@ macro_rules! map_modules {
                     break;
                 }
             }
+            match result {
+                MapResult::None => tracing::debug!("not process"),
+                MapResult::Process(m, h) => tracing::debug!("process by : {m} : {h}"),
+                MapResult::Exception(m, h) => tracing::debug!("process by : {m} : {h}"),
+            }
         result
     }};
 }
 
-async fn hand(modules: Arc<Vec<Module>>, client: grammers_client::Client, update: Update) {
-    let client_point = &client;
+async fn hand(modules: Arc<Vec<Module>>, mut client: grammers_client::Client, update: Update) {
+    let client_point = &mut client;
     let update_point = &update;
     match update_point {
         Update::NewMessage(message) => {
+            tracing::debug!(
+                "New Message : {} : {} : {}",
+                message.chat().id(),
+                message.id(),
+                message.text()
+            );
             let _ = map_modules!(
                 modules.deref(),
                 client_point,
@@ -78,6 +89,7 @@ async fn hand(modules: Arc<Vec<Module>>, client: grammers_client::Client, update
             );
         }
         Update::MessageEdited(message) => {
+            tracing::debug!("Message Edited : {}", message.id());
             let _ = map_modules!(
                 modules.deref(),
                 client_point,
@@ -88,6 +100,7 @@ async fn hand(modules: Arc<Vec<Module>>, client: grammers_client::Client, update
             );
         }
         Update::MessageDeleted(deletion) => {
+            tracing::debug!("Message Deleted : {:?}", deletion.messages());
             let _ = map_modules!(
                 modules.deref(),
                 client_point,
@@ -98,6 +111,7 @@ async fn hand(modules: Arc<Vec<Module>>, client: grammers_client::Client, update
             );
         }
         Update::CallbackQuery(callback_query) => {
+            tracing::debug!("Callback Query : {:?}", callback_query.chat().id());
             let _ = map_modules!(
                 modules.deref(),
                 client_point,
@@ -108,6 +122,7 @@ async fn hand(modules: Arc<Vec<Module>>, client: grammers_client::Client, update
             );
         }
         Update::InlineQuery(inline_query) => {
+            tracing::debug!("Inline Query : {:?}", inline_query.text());
             let _ = map_modules!(
                 modules.deref(),
                 client_point,
@@ -118,6 +133,7 @@ async fn hand(modules: Arc<Vec<Module>>, client: grammers_client::Client, update
             );
         }
         Update::Raw(update) => {
+            tracing::debug!("Raw : {:?}", update);
             let _ = map_modules!(
                 modules.deref(),
                 client_point,
@@ -216,18 +232,19 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
         if error_counter > 0 {
             match client.connect().await {
                 Ok(client_new) => {
+                    tracing::warn!("reconnected");
                     inner_client = client_new;
                     match inner_client.is_authorized().await {
                         Ok(auth) => {
                             if !auth {
-                                tracing::warn!("logged out");
+                                tracing::error!("logged out, exit");
                                 break;
                             }
                         }
                         Err(e) => {
                             error_counter += 1;
                             let sleep_sec = 2_u64.pow(min(10, error_counter));
-                            println!("reconnect auth error : sleep {sleep_sec} sec : {e}");
+                            tracing::error!("reconnect auth error : sleep {sleep_sec} sec : {e}");
                             sleep(Duration::from_secs(sleep_sec)).await;
                         }
                     }
@@ -235,7 +252,7 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
                 Err(e) => {
                     error_counter += 1;
                     let sleep_sec = 2_u64.pow(min(10, error_counter));
-                    println!("reconnect error : sleep {sleep_sec} sec : {e}");
+                    tracing::error!("reconnect error : sleep {sleep_sec} sec : {e}");
                     sleep(Duration::from_secs(sleep_sec)).await;
                 }
             }
@@ -251,7 +268,7 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
                 Err(e)=>{
                     error_counter+=1;
                     let sleep_sec = 2_u64.pow(min(10,error_counter));
-                    println!("next_update error : sleep {sleep_sec} sec : {e}");
+                    tracing::error!("next_update error : sleep {sleep_sec} sec : {e}");
                     sleep(Duration::from_secs(sleep_sec)).await;
                 }
             },

@@ -135,7 +135,7 @@ use teleser::re_exports::grammers_client::types::Message;
 use teleser::{new_message, Handler, InnerClient};
 
 #[new_message]
-async fn proc_new_message(_: &InnerClient, message: &Message) -> Result<bool> {
+async fn proc_new_message(_: &mut InnerClient, message: &Message) -> Result<bool> {
     println!("PROC : A NEW MESSAGE : {}", message.text());
     Ok(false)
 }
@@ -195,7 +195,7 @@ pub(crate) struct RawPlugin {}
 
 #[async_trait]
 impl NewMessageProcess for RawPlugin {
-    async fn handle(&self, _: &InnerClient, event: &Message) -> crate::Result<bool> {
+    async fn handle(&self, _: &mut InnerClient, event: &Message) -> crate::Result<bool> {
         println!("RAW : A NEW MESSAGE : {}", event.text());
         Ok(false)
     }

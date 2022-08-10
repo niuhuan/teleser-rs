@@ -24,6 +24,102 @@ macro_rules! emit {
 
 #[proc_macro_error]
 #[proc_macro_attribute]
+pub fn on_update(_: TokenStream, input: TokenStream) -> TokenStream {
+    // must append to async fn
+    let method = parse_macro_input!(input as syn::ItemFn);
+    if method.sig.asyncness.is_none() {
+        abort!(&method.sig.span(), "must be async function");
+    }
+    // params check
+    let params = &method.sig.inputs;
+    if params.len() != 2 {
+        abort!(&method.sig.span(), "must be 2 params");
+    };
+    let pm = params.first().unwrap();
+    let fp = match pm {
+        FnArg::Receiver(_) => abort!(&pm.span(), "do not input self"),
+        FnArg::Typed(pt) => pt,
+    };
+    let cpa = fp.pat.as_ref();
+    let cty = fp.ty.as_ref();
+    let param = params.last().unwrap();
+    let param = match param {
+        FnArg::Receiver(_) => abort!(&param.span(), "do not input self"),
+        FnArg::Typed(pt) => pt,
+    };
+    let param_pat = param.pat.as_ref();
+    let param_ty = param.ty.as_ref();
+    let param_ty = quote! {#param_ty};
+    let param_ty_str: String = param_ty.to_string();
+    if !(param_ty_str.starts_with("&") && param_ty_str.ends_with("Update")) {
+        abort!(
+            param.span(),
+            format!(
+                "unknown param type {}, please modify to &Message",
+                param_ty_str
+            )
+        );
+    }
+    let trait_name = quote! {::teleser::UpdateProcess};
+    let enum_name = quote! {::teleser::Process::UpdateProcess};
+    // result
+    let rs = method.sig.output;
+    // gen token stream
+    let ident = &method.sig.ident;
+    let ident_str = format!("{}", ident);
+    let build_struct = quote! {
+        #[allow(non_camel_case_types)]
+        pub struct #ident {}
+    };
+    let block = &method.block;
+    let build_trait = quote! {
+        #[::teleser::re_exports::async_trait::async_trait]
+        impl #trait_name for #ident {
+            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) #rs #block
+        }
+    };
+    let build_into = quote! {
+
+        impl Into<::teleser::Process> for #ident {
+            fn into(self) -> ::teleser::Process {
+                #enum_name(Box::new(self))
+            }
+        }
+
+        impl Into<::teleser::Handler> for #ident {
+            fn into(self) -> ::teleser::Handler {
+                ::teleser::Handler {
+                    id: #ident_str.to_owned(),
+                    process: self.into(),
+                }
+            }
+        }
+
+        impl Into<Vec<::teleser::Handler>> for #ident {
+            fn into(self) -> Vec<::teleser::Handler> {
+                vec![self.into()]
+            }
+        }
+
+        impl Into<::teleser::Module> for #ident {
+            fn into(self) -> ::teleser::Module {
+                ::teleser::Module {
+                    id: #ident_str.to_owned(),
+                    name: #ident_str.to_owned(),
+                    handlers: vec![self.into()],
+                }
+            }
+        }
+    };
+    emit!(quote! {
+        #build_struct
+        #build_trait
+        #build_into
+    })
+}
+
+#[proc_macro_error]
+#[proc_macro_attribute]
 pub fn new_message(_: TokenStream, input: TokenStream) -> TokenStream {
     // must append to async fn
     let method = parse_macro_input!(input as syn::ItemFn);
@@ -62,6 +158,8 @@ pub fn new_message(_: TokenStream, input: TokenStream) -> TokenStream {
     }
     let trait_name = quote! {::teleser::NewMessageProcess};
     let enum_name = quote! {::teleser::Process::NewMessageProcess};
+    // result
+    let rs = method.sig.output;
     // gen token stream
     let ident = &method.sig.ident;
     let ident_str = format!("{}", ident);
@@ -73,7 +171,7 @@ pub fn new_message(_: TokenStream, input: TokenStream) -> TokenStream {
     let build_trait = quote! {
         #[::teleser::re_exports::async_trait::async_trait]
         impl #trait_name for #ident {
-            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) -> Result<bool> #block
+            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) #rs #block
         }
     };
     let build_into = quote! {
@@ -156,6 +254,8 @@ pub fn message_edited(_: TokenStream, input: TokenStream) -> TokenStream {
     }
     let trait_name = quote! {::teleser::MessageEditedProcess};
     let enum_name = quote! {::teleser::Process::MessageEditedProcess};
+    // result
+    let rs = method.sig.output;
     // gen token stream
     let ident = &method.sig.ident;
     let ident_str = format!("{}", ident);
@@ -167,7 +267,7 @@ pub fn message_edited(_: TokenStream, input: TokenStream) -> TokenStream {
     let build_trait = quote! {
         #[::teleser::re_exports::async_trait::async_trait]
         impl #trait_name for #ident {
-            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) -> Result<bool> #block
+            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) #rs #block
         }
     };
     let build_into = quote! {
@@ -250,6 +350,8 @@ pub fn message_deleted(_: TokenStream, input: TokenStream) -> TokenStream {
     }
     let trait_name = quote! {::teleser::MessageDeletedProcess};
     let enum_name = quote! {::teleser::Process::MessageDeletedProcess};
+    // result
+    let rs = method.sig.output;
     // gen token stream
     let ident = &method.sig.ident;
     let ident_str = format!("{}", ident);
@@ -261,7 +363,7 @@ pub fn message_deleted(_: TokenStream, input: TokenStream) -> TokenStream {
     let build_trait = quote! {
         #[::teleser::re_exports::async_trait::async_trait]
         impl #trait_name for #ident {
-            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) -> Result<bool> #block
+            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) #rs #block
         }
     };
 
@@ -345,6 +447,8 @@ pub fn callback_query(_: TokenStream, input: TokenStream) -> TokenStream {
     }
     let trait_name = quote! {::teleser::CallbackQueryProcess};
     let enum_name = quote! {::teleser::Process::CallbackQueryProcess};
+    // result
+    let rs = method.sig.output;
     // gen token stream
     let ident = &method.sig.ident;
     let ident_str = format!("{}", ident);
@@ -356,7 +460,7 @@ pub fn callback_query(_: TokenStream, input: TokenStream) -> TokenStream {
     let build_trait = quote! {
         #[::teleser::re_exports::async_trait::async_trait]
         impl #trait_name for #ident {
-            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) -> Result<bool> #block
+            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) #rs #block
         }
     };
 
@@ -440,6 +544,8 @@ pub fn inline_query(_: TokenStream, input: TokenStream) -> TokenStream {
     }
     let trait_name = quote! {::teleser::InlineQueryProcess};
     let enum_name = quote! {::teleser::Process::InlineQueryProcess};
+    // result
+    let rs = method.sig.output;
     // gen token stream
     let ident = &method.sig.ident;
     let ident_str = format!("{}", ident);
@@ -451,7 +557,7 @@ pub fn inline_query(_: TokenStream, input: TokenStream) -> TokenStream {
     let build_trait = quote! {
         #[::teleser::re_exports::async_trait::async_trait]
         impl #trait_name for #ident {
-            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) -> Result<bool> #block
+            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) #rs #block
         }
     };
 
@@ -535,6 +641,8 @@ pub fn raw(_: TokenStream, input: TokenStream) -> TokenStream {
     }
     let trait_name = quote! {::teleser::RawProcess};
     let enum_name = quote! {::teleser::Process::RawProcess};
+    // result
+    let rs = method.sig.output;
     // gen token stream
     let ident = &method.sig.ident;
     let ident_str = format!("{}", ident);
@@ -546,7 +654,7 @@ pub fn raw(_: TokenStream, input: TokenStream) -> TokenStream {
     let build_trait = quote! {
         #[::teleser::re_exports::async_trait::async_trait]
         impl #trait_name for #ident {
-            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) -> Result<bool> #block
+            async fn handle(&self, #cpa: #cty,#param_pat: #param_ty) #rs #block
         }
     };
 

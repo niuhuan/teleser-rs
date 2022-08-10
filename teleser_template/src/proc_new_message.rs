@@ -3,7 +3,7 @@ use teleser::re_exports::grammers_client::types::Message;
 use teleser::{new_message, Handler, InnerClient, Module};
 
 #[new_message]
-async fn proc_new_message(_: &InnerClient, message: &Message) -> Result<bool> {
+async fn proc_new_message(_: &mut InnerClient, message: &Message) -> Result<bool> {
     println!("PROC : A NEW MESSAGE : {}", message.text());
     Ok(false)
 }

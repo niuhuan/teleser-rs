@@ -3,7 +3,7 @@ use teleser::re_exports::grammers_client::types::MessageDeletion;
 use teleser::{message_deleted, Handler, InnerClient, Module};
 
 #[message_deleted]
-async fn proc_message_deleted(_: &InnerClient, message: &MessageDeletion) -> Result<bool> {
+async fn proc_message_deleted(_: &mut InnerClient, message: &MessageDeletion) -> Result<bool> {
     println!("PROC : MESSAGE deleted : {:?}", message.messages());
     Ok(false)
 }

@@ -3,7 +3,7 @@ use teleser::re_exports::grammers_client::types::Message;
 use teleser::{message_edited, Handler, InnerClient, Module};
 
 #[message_edited]
-async fn proc_message_edited(_: &InnerClient, message: &Message) -> Result<bool> {
+async fn proc_message_edited(_: &mut InnerClient, message: &Message) -> Result<bool> {
     println!("PROC : MESSAGE EDITED : {}", message.text());
     Ok(false)
 }
