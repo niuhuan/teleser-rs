@@ -51,6 +51,7 @@ async fn async_main() -> Result<()> {
                 input_code: Box::pin(|| {
                     Box::pin(async { input("Input your device or sms code ( like 12345 )") })
                 }),
+                input_password: Box::pin(|| Box::pin(async { input("Input your password") })),
             }))
             .with_on_save_session(Box::pin(|data| {
                 Box::pin(async move {
@@ -98,9 +99,9 @@ async fn async_main() -> Result<()> {
     Ok(())
 }
 
-fn input(tip: &str) -> Result<String> {
+fn input(tips: &str) -> Result<String> {
     let mut s = String::new();
-    print!("{tip}: ");
+    print!("{tips}: ");
     let _ = stdout().flush();
     stdin().read_line(&mut s)?;
     if let Some('\n') = s.chars().next_back() {

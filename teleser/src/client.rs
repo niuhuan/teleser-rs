@@ -2,7 +2,8 @@ use crate::Result;
 use std::cmp::min;
 
 use crate::handler::Module;
-use grammers_client::{Config, InitParams, Update};
+use anyhow::anyhow;
+use grammers_client::{Config, InitParams, SignInError, Update};
 use grammers_session::Session;
 use grammers_tl_types as tl;
 use std::future::Future;
@@ -201,9 +202,18 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
                         client.api_hash.as_str(),
                     )
                     .await?;
-                inner_client
+                match inner_client
                     .sign_in(&token, (auth.input_code)().await?.as_str())
-                    .await?
+                    .await
+                {
+                    Err(SignInError::PasswordRequired(password_token)) => {
+                        inner_client
+                            .check_password(password_token, (auth.input_password)().await?.as_str())
+                            .await?
+                    }
+                    Ok(usr) => usr,
+                    Err(err) => return Err(anyhow!(err)),
+                }
             }
             Auth::AuthWithBotToken(auth) => {
                 inner_client
@@ -414,4 +424,5 @@ pub struct AuthWithBotToken {
 pub struct AuthWithPhoneAndCode {
     pub input_phone: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
     pub input_code: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
+    pub input_password: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
 }

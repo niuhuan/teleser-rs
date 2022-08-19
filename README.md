@@ -70,6 +70,9 @@ async fn async_main() -> Result<()> {
                 input_code: Box::pin(|| {
                     Box::pin(async { input("Input your device or sms code ( like 12345 )") })
                 }),
+                input_password: Box::pin(|| {
+                    Box::pin(async { input("Input your password") })
+                }),
             }))
             // save session to file teleser.session if login
             .with_on_save_session(Box::pin(|data| {
@@ -119,7 +122,23 @@ async fn async_main() -> Result<()> {
 
 ### Input 
 
-look up source code, only read line from console
+Only read line from console
+
+```rust
+fn input(tips: &str) -> Result<String> {
+    let mut s = String::new();
+    print!("{tips}: ");
+    let _ = stdout().flush();
+    stdin().read_line(&mut s)?;
+    if let Some('\n') = s.chars().next_back() {
+        s.pop();
+    }
+    if let Some('\r') = s.chars().next_back() {
+        s.pop();
+    }
+    Ok(s)
+}
+```
 
 ### Handler
 
