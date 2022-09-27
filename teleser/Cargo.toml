@@ -8,10 +8,10 @@ repository = "https://github.com/niuhuan/teleser-rs"
 
 [dependencies]
 anyhow = "1.0"
-tokio = { version = "1", features = ["full"] }
-tracing = "0.1.36"
-grammers-client = { git = "https://github.com/niuhuan/grammers.git", features = ["proxy"] }
-grammers-session = { git = "https://github.com/niuhuan/grammers.git" }
-grammers-tl-types = { git = "https://github.com/niuhuan/grammers.git" }
+async-trait = "0.1"
+grammers-client = { git = "https://github.com/Lonami/grammers.git", features = ["proxy"] }
+grammers-session = { git = "https://github.com/Lonami/grammers.git" }
+grammers-tl-types = { git = "https://github.com/Lonami/grammers.git" }
 teleser_gen = { path = "../teleser_gen" }
-async-trait = "0.1.57"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"

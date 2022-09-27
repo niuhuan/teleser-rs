@@ -101,7 +101,7 @@ async fn async_main() -> Result<()> {
 
 fn input(tips: &str) -> Result<String> {
     let mut s = String::new();
-    print!("{tips}: ");
+    print!("{}: ", tips);
     let _ = stdout().flush();
     stdin().read_line(&mut s)?;
     if let Some('\n') = s.chars().next_back() {
