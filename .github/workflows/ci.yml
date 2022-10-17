@@ -71,9 +71,6 @@ jobs:
           - os: windows-latest
             toolchain: nightly-x86_64-pc-windows-gnu
             target: x86_64-pc-windows-gnu
-          - os: ubuntu-latest
-            toolchain: nightly
-            target: aarch64-linux-android
 
     steps:
       - name: Checkout
