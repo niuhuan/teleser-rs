@@ -6,6 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-teleser = { path = "../teleser" }
+teleser = { path = "../teleser", features = ["proxy"] }
 tracing-subscriber = "0.3.15"
-

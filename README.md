@@ -3,10 +3,20 @@ Teleser
 
 A telegram's **MTProto** bot framework based [grammers](https://github.com/Lonami/grammers), supported login with phone number and bot token
 
+
+
 ## Make a bot
 
+### At first
+
+Get an api id form https://core.telegram.org/api/obtaining_api_id
+
+### Add teleser to dependencies
+
+Both add proxy feature is good idea if your in China main land network
+
 ```toml
-teleser = { git = "https://github.com/niuhuan/teleser-rs.git" }
+teleser = { version = "0", features = ["proxy"] }
 ```
 
 And look up [bot template source code](https://github.com/niuhuan/teleser-rs/tree/master/teleser_template/src)
@@ -95,6 +105,7 @@ async fn async_main() -> Result<()> {
             // modules
             .with_modules(vec![raw_plugin::module(), proc_plugin::module()])
             // connect to server via proxy url, like socks5://127.0.0.1:1080 (runtime)
+            // please delete this code if you not add feature named proxy
             .with_proxy(match std::env::var("TELESER_PROXY") {
                 Ok(url) => Some(url),
                 Err(_) => None,

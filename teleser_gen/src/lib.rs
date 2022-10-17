@@ -5,7 +5,7 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, FnArg};
 
-/// debug = note expanded codes if env PROC_QQ_CODEGEN_DEBUG exists
+/// debug = note expanded codes if env TELESER_DEBUG exists
 macro_rules! emit {
     ($tokens:expr) => {{
         use devise::ext::SpanDiagnosticExt;
