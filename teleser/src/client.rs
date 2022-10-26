@@ -24,8 +24,7 @@ pub struct Client {
     on_save_session: Pin<Box<fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>>>,
     on_load_session:
         Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<Option<Vec<u8>>>> + Send>>>>,
-    #[cfg(feature = "proxy")]
-    proxy: Option<String>,
+    init_params: Option<InitParams>,
 }
 
 enum MapResult<'a> {
@@ -169,14 +168,10 @@ impl Client {
             session: self.load_session().await?,
             api_id: self.api_id.clone(), // not actually logging in, but has to look real
             api_hash: self.api_hash.clone(),
-            #[cfg(feature = "proxy")]
-            params: {
-                let mut params = InitParams::default();
-                params.proxy_url = self.proxy.clone();
-                params
+            params: match self.init_params.clone() {
+                None => InitParams::default(),
+                Some(params) => params,
             },
-            #[cfg(not(feature = "proxy"))]
-            params: InitParams::default(),
         })
         .await;
         let client = connect?;
@@ -303,8 +298,7 @@ pub struct ClientBuilder {
         Pin<Box<fn() -> Pin<Box<dyn Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send>>>>,
     >,
     modules: Option<Arc<Vec<Module>>>,
-    #[cfg(feature = "proxy")]
-    proxy: Option<String>,
+    init_params: Option<InitParams>,
 }
 
 impl ClientBuilder {
@@ -316,8 +310,7 @@ impl ClientBuilder {
             on_save_session: None,
             on_load_session: None,
             modules: None,
-            #[cfg(feature = "proxy")]
-            proxy: None,
+            init_params: None,
         }
     }
 
@@ -395,14 +388,12 @@ impl ClientBuilder {
         self
     }
 
-    #[cfg(feature = "proxy")]
-    pub fn set_proxy(&mut self, s: Option<String>) {
-        self.proxy = s
+    pub fn set_init_params(&mut self, s: Option<InitParams>) {
+        self.init_params = s
     }
 
-    #[cfg(feature = "proxy")]
-    pub fn with_proxy(mut self, s: Option<String>) -> Self {
-        self.set_proxy(s);
+    pub fn with_init_params(mut self, s: Option<InitParams>) -> Self {
+        self.set_init_params(s);
         self
     }
 
@@ -415,8 +406,7 @@ impl ClientBuilder {
             auth: self.auth.expect("must set auth"),
             on_save_session: self.on_save_session.expect("must set on_save_session"),
             on_load_session: self.on_load_session.expect("must set on_load_session"),
-            #[cfg(feature = "proxy")]
-            proxy: self.proxy,
+            init_params: self.init_params,
         });
     }
 }

@@ -6,6 +6,7 @@ mod raw_plugin;
 use std::io::{stdin, stdout, Write};
 use std::path::Path;
 use std::sync::Arc;
+use teleser::re_exports::grammers_client::InitParams;
 use teleser::re_exports::tokio;
 use teleser::re_exports::tokio::runtime;
 use teleser::re_exports::tracing::Level;
@@ -75,9 +76,13 @@ async fn async_main() -> Result<()> {
                 proc_message_edited::module(),
                 proc_message_deleted::module(),
             ])
-            .with_proxy(match std::env::var("TELESER_PROXY") {
-                Ok(url) => Some(url),
-                Err(_) => None,
+            .with_init_params(match std::env::var("TELESER_PROXY") {
+                Ok(url) => {
+                    let mut ip = InitParams::default();
+                    ip.proxy_url = Some(url);
+                    Some(ip)
+                }
+                Err(_) => Some(InitParams::default()),
             })
             .build()?,
     );
