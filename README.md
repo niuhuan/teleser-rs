@@ -106,9 +106,13 @@ async fn async_main() -> Result<()> {
             .with_modules(vec![raw_plugin::module(), proc_plugin::module()])
             // connect to server via proxy url, like socks5://127.0.0.1:1080 (runtime)
             // please delete this code if you not add feature named proxy
-            .with_proxy(match std::env::var("TELESER_PROXY") {
-                Ok(url) => Some(url),
-                Err(_) => None,
+            .with_init_params(match std::env::var("TELESER_PROXY") {
+                Ok(url) => {
+                    let mut ip = InitParams::default();
+                    ip.proxy_url = Some(url);
+                    Some(ip)
+                }
+                Err(_) => Some(InitParams::default()),
             })
             .build()?,
     );
