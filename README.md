@@ -73,34 +73,11 @@ async fn async_main() -> Result<()> {
             // read api hash from env (on build)
             .with_api_hash(env!("API_HASH").to_string())
             // auth
-            .with_auth(Auth::AuthWithPhoneAndCode(AuthWithPhoneAndCode {
-                input_phone: Box::pin(|| {
-                    Box::pin(async { input("Input your phone number ( like +112345678 )") })
-                }),
-                input_code: Box::pin(|| {
-                    Box::pin(async { input("Input your device or sms code ( like 12345 )") })
-                }),
-                input_password: Box::pin(|| {
-                    Box::pin(async { input("Input your password") })
-                }),
-            }))
-            // save session to file teleser.session if login
-            .with_on_save_session(Box::pin(|data| {
-                Box::pin(async move {
-                    tokio::fs::write("teleser.session", data).await?;
-                    Ok(())
-                })
-            }))
+            .with_auth(Auth::AuthWithPhoneAndCode(Box::new(Input {}))
             // load session file on startup
-            .with_on_load_session(Box::pin(|| {
-                Box::pin(async move {
-                    let path = Path::new("teleser.session");
-                    if path.exists() {
-                        Ok(Some(tokio::fs::read(path).await?))
-                    } else {
-                        Ok(None)
-                    }
-                })
+            // save session to file teleser.session if login
+            .with_session_store(Box::new(FileSessionStore{
+                path: "teleser.session".to_string(),
             }))
             // modules
             .with_modules(vec![raw_plugin::module(), proc_plugin::module()])
@@ -140,6 +117,23 @@ async fn async_main() -> Result<()> {
 Only read line from console
 
 ```rust
+pub struct Input {}
+
+#[async_trait]
+impl AuthWithPhoneAndCode for Input {
+    async fn input_phone(&self) -> Result<String> {
+        input("Input your phone number ( like +112345678 )")
+    }
+
+    async fn input_code(&self) -> Result<String> {
+        input("Input your device or sms code ( like 12345 )")
+    }
+
+    async fn input_password(&self) -> Result<String> {
+        input("Input your password")
+    }
+}
+
 fn input(tips: &str) -> Result<String> {
     let mut s = String::new();
     print!("{tips}: ");

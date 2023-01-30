@@ -4,13 +4,13 @@ mod proc_new_message;
 mod raw_plugin;
 
 use std::io::{stdin, stdout, Write};
-use std::path::Path;
 use std::sync::Arc;
+use teleser::re_exports::async_trait::async_trait;
 use teleser::re_exports::grammers_client::InitParams;
 use teleser::re_exports::tokio;
 use teleser::re_exports::tokio::runtime;
 use teleser::re_exports::tracing::Level;
-use teleser::{Auth, AuthWithPhoneAndCode, Result};
+use teleser::{Auth, AuthWithPhoneAndCode, FileSessionStore, Result};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -45,30 +45,9 @@ async fn async_main() -> Result<()> {
         teleser::ClientBuilder::new()
             .with_api_id(env!("API_ID").parse()?)
             .with_api_hash(env!("API_HASH").to_string())
-            .with_auth(Auth::AuthWithPhoneAndCode(AuthWithPhoneAndCode {
-                input_phone: Box::pin(|| {
-                    Box::pin(async { input("Input your phone number ( like +112345678 )") })
-                }),
-                input_code: Box::pin(|| {
-                    Box::pin(async { input("Input your device or sms code ( like 12345 )") })
-                }),
-                input_password: Box::pin(|| Box::pin(async { input("Input your password") })),
-            }))
-            .with_on_save_session(Box::pin(|data| {
-                Box::pin(async move {
-                    tokio::fs::write("teleser.session", data).await?;
-                    Ok(())
-                })
-            }))
-            .with_on_load_session(Box::pin(|| {
-                Box::pin(async move {
-                    let path = Path::new("teleser.session");
-                    if path.exists() {
-                        Ok(Some(tokio::fs::read(path).await?))
-                    } else {
-                        Ok(None)
-                    }
-                })
+            .with_auth(Auth::AuthWithPhoneAndCode(Box::new(Input {})))
+            .with_session_store(Box::new(FileSessionStore {
+                path: "teleser.session".to_string(),
             }))
             .with_modules(vec![
                 raw_plugin::module(),
@@ -102,6 +81,23 @@ async fn async_main() -> Result<()> {
     teleser::run_client_and_reconnect(client).await?;
     /////////////////////////////////////
     Ok(())
+}
+
+pub struct Input {}
+
+#[async_trait]
+impl AuthWithPhoneAndCode for Input {
+    async fn input_phone(&self) -> Result<String> {
+        input("Input your phone number ( like +112345678 )")
+    }
+
+    async fn input_code(&self) -> Result<String> {
+        input("Input your device or sms code ( like 12345 )")
+    }
+
+    async fn input_password(&self) -> Result<String> {
+        input("Input your password")
+    }
 }
 
 fn input(tips: &str) -> Result<String> {

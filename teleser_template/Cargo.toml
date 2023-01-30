@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 teleser = { path = "../teleser", features = ["proxy"] }
-tracing-subscriber = "0.3.15"
+tracing-subscriber = "0.3.16"

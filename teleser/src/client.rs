@@ -3,12 +3,12 @@ use std::cmp::min;
 
 use crate::handler::Module;
 use anyhow::anyhow;
+use async_trait::async_trait;
 use grammers_client::{Config, InitParams, SignInError, Update};
 use grammers_session::Session;
 use grammers_tl_types as tl;
-use std::future::Future;
 use std::ops::Deref;
-use std::pin::Pin;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -21,9 +21,7 @@ pub struct Client {
     api_id: i32,
     api_hash: String,
     auth: Auth,
-    on_save_session: Pin<Box<fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>>>,
-    on_load_session:
-        Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<Option<Vec<u8>>>> + Send>>>>,
+    session_store: Box<dyn SessionStore + Sync + Send>,
     init_params: Option<InitParams>,
 }
 
@@ -150,11 +148,13 @@ async fn hand(modules: Arc<Vec<Module>>, mut client: grammers_client::Client, up
 
 impl Client {
     async fn load_session(&self) -> Result<Session> {
-        Ok(if let Some(data) = (self.on_load_session)().await? {
-            Session::load(&data)?
-        } else {
-            Session::new()
-        })
+        Ok(
+            if let Some(data) = self.session_store.on_load_session().await? {
+                Session::load(&data)?
+            } else {
+                Session::new()
+            },
+        )
     }
 
     async fn set_client(&self, inner_client: Option<grammers_client::Client>) {
@@ -196,18 +196,18 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
             Auth::AuthWithPhoneAndCode(auth) => {
                 let token = inner_client
                     .request_login_code(
-                        (auth.input_phone)().await?.as_str(),
+                        auth.input_phone().await?.as_str(),
                         client.api_id.clone(),
                         client.api_hash.as_str(),
                     )
                     .await?;
                 match inner_client
-                    .sign_in(&token, (auth.input_code)().await?.as_str())
+                    .sign_in(&token, auth.input_code().await?.as_str())
                     .await
                 {
                     Err(SignInError::PasswordRequired(password_token)) => {
                         inner_client
-                            .check_password(password_token, (auth.input_password)().await?.as_str())
+                            .check_password(password_token, auth.input_password().await?.as_str())
                             .await?
                     }
                     Ok(usr) => usr,
@@ -217,7 +217,7 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
             Auth::AuthWithBotToken(auth) => {
                 inner_client
                     .bot_sign_in(
-                        (auth.input_bot_token)().await?.as_str(),
+                        auth.input_bot_token().await?.as_str(),
                         client.api_id.clone(),
                         client.api_hash.as_str(),
                     )
@@ -225,7 +225,10 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
             }
         };
         tracing::info!("login with id : {}", usr.id());
-        (client.on_save_session)(inner_client.session().save()).await?;
+        client
+            .session_store
+            .on_save_session(inner_client.session().save())
+            .await?;
     } else {
         let usr = inner_client.get_me().await?;
         tracing::info!("session with id : {}", usr.id());
@@ -292,11 +295,7 @@ pub struct ClientBuilder {
     api_id: Option<i32>,
     api_hash: Option<String>,
     auth: Option<Auth>,
-    on_save_session:
-        Option<Pin<Box<fn(Vec<u8>) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>>>>,
-    on_load_session: Option<
-        Pin<Box<fn() -> Pin<Box<dyn Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send>>>>,
-    >,
+    session_store: Option<Box<dyn SessionStore + Sync + Send>>,
     modules: Option<Arc<Vec<Module>>>,
     init_params: Option<InitParams>,
 }
@@ -307,8 +306,7 @@ impl ClientBuilder {
             api_id: None,
             api_hash: None,
             auth: None,
-            on_save_session: None,
-            on_load_session: None,
+            session_store: None,
             modules: None,
             init_params: None,
         }
@@ -341,41 +339,15 @@ impl ClientBuilder {
         self
     }
 
-    pub fn set_on_save_session(
-        &mut self,
-        on_save_session: Pin<
-            Box<fn(Vec<u8>) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>>,
-        >,
-    ) {
-        self.on_save_session = Some(on_save_session)
+    pub fn set_session_store(&mut self, session_store: Box<dyn SessionStore + Sync + Send>) {
+        self.session_store = Some(session_store)
     }
 
-    pub fn with_on_save_session(
+    pub fn with_session_store(
         mut self,
-        on_save_session: Pin<
-            Box<fn(Vec<u8>) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>>,
-        >,
+        session_store: Box<dyn SessionStore + Sync + Send>,
     ) -> Self {
-        self.set_on_save_session(on_save_session);
-        self
-    }
-
-    pub fn set_on_load_session(
-        &mut self,
-        on_load_session: Pin<
-            Box<fn() -> Pin<Box<dyn Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send>>>,
-        >,
-    ) {
-        self.on_load_session = Some(on_load_session)
-    }
-
-    pub fn with_on_load_session(
-        mut self,
-        on_load_session: Pin<
-            Box<fn() -> Pin<Box<dyn Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send>>>,
-        >,
-    ) -> Self {
-        self.set_on_load_session(on_load_session);
+        self.set_session_store(session_store);
         self
     }
 
@@ -404,24 +376,62 @@ impl ClientBuilder {
             api_id: self.api_id.expect("must set api_id"),
             api_hash: self.api_hash.expect("must set api_hash"),
             auth: self.auth.expect("must set auth"),
-            on_save_session: self.on_save_session.expect("must set on_save_session"),
-            on_load_session: self.on_load_session.expect("must set on_load_session"),
+            session_store: self.session_store.expect("must set session_store"),
             init_params: self.init_params,
         });
     }
 }
 
 pub enum Auth {
-    AuthWithBotToken(AuthWithBotToken),
-    AuthWithPhoneAndCode(AuthWithPhoneAndCode),
+    AuthWithBotToken(Box<dyn AuthWithBotToken + Send + Sync>),
+    AuthWithPhoneAndCode(Box<dyn AuthWithPhoneAndCode + Send + Sync>),
 }
 
-pub struct AuthWithBotToken {
-    pub input_bot_token: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
+#[async_trait]
+pub trait AuthWithBotToken {
+    async fn input_bot_token(&self) -> Result<String>;
 }
 
-pub struct AuthWithPhoneAndCode {
-    pub input_phone: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
-    pub input_code: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
-    pub input_password: Pin<Box<fn() -> Pin<Box<dyn Future<Output = Result<String>> + Send>>>>,
+#[async_trait]
+pub trait AuthWithPhoneAndCode {
+    async fn input_phone(&self) -> Result<String>;
+    async fn input_code(&self) -> Result<String>;
+    async fn input_password(&self) -> Result<String>;
+}
+
+#[async_trait]
+pub trait SessionStore {
+    async fn on_save_session(&self, data: Vec<u8>) -> Result<()>;
+    async fn on_load_session(&self) -> Result<Option<Vec<u8>>>;
+}
+
+pub struct StaticBotToken {
+    pub token: String,
+}
+
+#[async_trait]
+impl AuthWithBotToken for StaticBotToken {
+    async fn input_bot_token(&self) -> Result<String> {
+        return Ok(self.token.clone());
+    }
+}
+
+pub struct FileSessionStore {
+    pub path: String,
+}
+
+#[async_trait]
+impl SessionStore for FileSessionStore {
+    async fn on_save_session(&self, data: Vec<u8>) -> Result<()> {
+        tokio::fs::write(self.path.as_str(), data).await?;
+        Ok(())
+    }
+    async fn on_load_session(&self) -> Result<Option<Vec<u8>>> {
+        let path = Path::new(self.path.as_str());
+        if path.exists() {
+            Ok(Some(tokio::fs::read(path).await?))
+        } else {
+            Ok(None)
+        }
+    }
 }
