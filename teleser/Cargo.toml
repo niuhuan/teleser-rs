@@ -9,9 +9,9 @@ repository = "https://github.com/niuhuan/teleser-rs"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-grammers-client = "0.4.0"
-grammers-session = "0.4.0"
-grammers-tl-types = "0.4.0"
+grammers-client = { git = "https://github.com/niuhuan/grammers.git", branch = "patched" }
+grammers-session = { git = "https://github.com/niuhuan/grammers.git", branch = "patched" }
+grammers-tl-types = { git = "https://github.com/niuhuan/grammers.git", branch = "patched" }
 teleser_gen = { path = "../teleser_gen" }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
