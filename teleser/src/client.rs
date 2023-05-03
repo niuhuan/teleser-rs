@@ -1,19 +1,20 @@
-use crate::Result;
 use std::cmp::min;
+use std::ops::Deref;
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
 
-use crate::handler::Module;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use grammers_client::{Config, InitParams, SignInError, Update};
 use grammers_session::Session;
 use grammers_tl_types as tl;
-use std::ops::Deref;
-use std::path::Path;
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
+
+use crate::handler::Module;
+use crate::Result;
 
 pub struct Client {
     pub inner_client: Mutex<Option<grammers_client::Client>>,
@@ -178,61 +179,68 @@ impl Client {
         self.set_client(Some(client.clone())).await;
         Ok(client)
     }
+
+    async fn connect_and_auth(&self) -> Result<grammers_client::Client> {
+        let inner_client = self.connect().await?;
+        tracing::info!("Connected! (first)");
+        tracing::info!("Sending ping...");
+        tracing::info!(
+            "{:?}",
+            inner_client
+                .invoke(&tl::functions::Ping { ping_id: 0 })
+                .await?
+        );
+        if !inner_client.is_authorized().await? {
+            let usr = match &self.auth {
+                Auth::AuthWithPhoneAndCode(auth) => {
+                    let token = inner_client
+                        .request_login_code(
+                            auth.input_phone().await?.as_str(),
+                            self.api_id.clone(),
+                            self.api_hash.as_str(),
+                        )
+                        .await?;
+                    match inner_client
+                        .sign_in(&token, auth.input_code().await?.as_str())
+                        .await
+                    {
+                        Err(SignInError::PasswordRequired(password_token)) => {
+                            inner_client
+                                .check_password(
+                                    password_token,
+                                    auth.input_password().await?.as_str(),
+                                )
+                                .await?
+                        }
+                        Ok(usr) => usr,
+                        Err(err) => return Err(anyhow!(err)),
+                    }
+                }
+                Auth::AuthWithBotToken(auth) => {
+                    inner_client
+                        .bot_sign_in(
+                            auth.input_bot_token().await?.as_str(),
+                            self.api_id.clone(),
+                            self.api_hash.as_str(),
+                        )
+                        .await?
+                }
+            };
+            tracing::info!("login with id : {}", usr.id());
+            self.session_store
+                .on_save_session(inner_client.session().save())
+                .await?;
+        } else {
+            let usr = inner_client.get_me().await?;
+            tracing::info!("session with id : {}", usr.id());
+        }
+        Ok(inner_client)
+    }
 }
 
 pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result<()> {
     let client = client.into();
-    let mut inner_client = client.connect().await?;
-    tracing::info!("Connected! (first)");
-    tracing::info!("Sending ping...");
-    tracing::info!(
-        "{:?}",
-        inner_client
-            .invoke(&tl::functions::Ping { ping_id: 0 })
-            .await?
-    );
-    if !inner_client.is_authorized().await? {
-        let usr = match &client.auth {
-            Auth::AuthWithPhoneAndCode(auth) => {
-                let token = inner_client
-                    .request_login_code(
-                        auth.input_phone().await?.as_str(),
-                        client.api_id.clone(),
-                        client.api_hash.as_str(),
-                    )
-                    .await?;
-                match inner_client
-                    .sign_in(&token, auth.input_code().await?.as_str())
-                    .await
-                {
-                    Err(SignInError::PasswordRequired(password_token)) => {
-                        inner_client
-                            .check_password(password_token, auth.input_password().await?.as_str())
-                            .await?
-                    }
-                    Ok(usr) => usr,
-                    Err(err) => return Err(anyhow!(err)),
-                }
-            }
-            Auth::AuthWithBotToken(auth) => {
-                inner_client
-                    .bot_sign_in(
-                        auth.input_bot_token().await?.as_str(),
-                        client.api_id.clone(),
-                        client.api_hash.as_str(),
-                    )
-                    .await?
-            }
-        };
-        tracing::info!("login with id : {}", usr.id());
-        client
-            .session_store
-            .on_save_session(inner_client.session().save())
-            .await?;
-    } else {
-        let usr = inner_client.get_me().await?;
-        tracing::info!("session with id : {}", usr.id());
-    }
+    let mut inner_client = client.connect_and_auth().await?;
 
     let mut error_counter = 0;
 
@@ -289,6 +297,13 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
     }
 
     Ok(())
+}
+
+pub async fn connect_and_auth_inner<S: Into<Arc<Client>>>(
+    client: S,
+) -> Result<grammers_client::Client> {
+    let client = client.into();
+    client.connect_and_auth().await
 }
 
 pub struct ClientBuilder {
