@@ -195,11 +195,7 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
         let usr = match &client.auth {
             Auth::AuthWithPhoneAndCode(auth) => {
                 let token = inner_client
-                    .request_login_code(
-                        auth.input_phone().await?.as_str(),
-                        client.api_id.clone(),
-                        client.api_hash.as_str(),
-                    )
+                    .request_login_code(auth.input_phone().await?.as_str())
                     .await?;
                 match inner_client
                     .sign_in(&token, auth.input_code().await?.as_str())
@@ -216,11 +212,7 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
             }
             Auth::AuthWithBotToken(auth) => {
                 inner_client
-                    .bot_sign_in(
-                        auth.input_bot_token().await?.as_str(),
-                        client.api_id.clone(),
-                        client.api_hash.as_str(),
-                    )
+                    .bot_sign_in(auth.input_bot_token().await?.as_str())
                     .await?
             }
         };
@@ -273,9 +265,7 @@ pub async fn run_client_and_reconnect<S: Into<Arc<Client>>>(client: S) -> Result
             result = inner_client.next_update() => match result {
                 Ok(update)=> {
                     error_counter = 0;
-                    if let Some(update) = update {
-                        task::spawn(hand(client.modules.clone(),inner_client.clone(), update));
-                    }
+                    task::spawn(hand(client.modules.clone(),inner_client.clone(), update));
                 }
                 Err(e)=>{
                     error_counter+=1;
